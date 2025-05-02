@@ -24,9 +24,11 @@ pd.set_option('display.max_rows', None)
 # Set the device for model loading (use CUDA if available)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-# Load the comment data from the specified file path
-file_path = './app/dataset/yt_data2.json'
-comments_df = extract_comments(file_path)
+# Function to load the comment data
+def load_comment_data(file_path='./app/dataset/yt_data2.json', video_id=None):
+    """Load the comment data from the specified file path."""
+    comments_df = extract_comments(file_path)
+    return comments_df
 
 # Mendefinisikan fungsi klasifikasi
 def text_emotion_classification(text: str) -> str:
@@ -156,9 +158,11 @@ def emotion_to_sentiment(label: str) -> str:
         return 'negative'
     return 'positive'
 
-# Assuming comments_df is a pandas DataFrame and 'comment' column contains the comments
-comments_df['emotion'] = comments_df['comment'].apply(text_emotion_classification)
-comments_df['sentiment'] = comments_df['emotion'].apply(emotion_to_sentiment)
+def classify_emotions_and_sentiments(comments_df):
+    """Apply emotion classification and sentiment conversion on comments."""
+    comments_df['emotion'] = comments_df['comment'].apply(text_emotion_classification)
+    comments_df['sentiment'] = comments_df['emotion'].apply(emotion_to_sentiment)
+    return comments_df
 
 # Create Function to Emotion Count from Dataset
 # Create Function to Sentiment Count  from Dataset
@@ -178,41 +182,43 @@ def plot_emotion_counts(comments_df,  output_filepath='./emotion_plot.png'):
         'sadness': '#5DA4D2'
     }
     
-    # Default emotion order if not provided
-    # emotion_order = ['anger', 'enthusiasm', 'happiness', 'calm', 'neutral', 'disgust', 'fear', 'appreciation', 'sadness']
+    def classify_emotions_and_sentiments(comments_df):
+        """Apply emotion classification and sentiment conversion on comments."""
+        comments_df['emotion'] = comments_df['comment'].apply(text_emotion_classification)
+        comments_df['sentiment'] = comments_df['emotion'].apply(emotion_to_sentiment)
+        return comments_df
+    
+ # Function to plot emotion counts and save the plot
+def plot_emotion_counts(comments_df, output_filepath='./emotion_plot.png'):
+    """Generate a bar plot showing the counts of each emotion."""
+    colors = {
+        'anger': '#DA655B', 'enthusiasm': '#DD649E', 'happiness': '#F7E991', 'calm': '#ECB974',
+        'neutral': '#808080', 'disgust': '#5F4594', 'fear': '#8A77AB', 'appreciation': '#59BCD7',
+        'sadness': '#5DA4D2'
+    }
+
     emotion_order = ['anger', 'enthusiasm', 'happiness', 'calm', 'disgust', 'fear', 'appreciation', 'sadness']
     ordered_colors = [colors[emotion] for emotion in emotion_order]
+
     # Count the occurrences of each emotion
-    emotion_counts = comments_df['emotion'].value_counts()
-
-    # Convert Series to DataFrame and reset index
-    emotion_counts = emotion_counts.reset_index()
+    emotion_counts = comments_df['emotion'].value_counts().reset_index()
     emotion_counts.columns = ['emotion', 'count']
-
-    # Sort by count in descending order
     emotion_counts = emotion_counts.sort_values(by='count', ascending=False).reset_index(drop=True)
-
     emotion_counts = emotion_counts.set_index('emotion', inplace=False)
-
     emotion_counts = emotion_counts.reindex(emotion_order)
-    print(emotion_counts)
 
-    # Create a horizontal bar chart
+    # Plot the emotions as a horizontal bar chart
     plt.figure(figsize=(12, 8))
     bars = plt.barh(emotion_counts.index, emotion_counts["count"], color=ordered_colors, height=0.87)
 
     # Add data labels
     for bar in bars:
         plt.text(bar.get_width(), bar.get_y() + bar.get_height()/2, f'{int(bar.get_width())}',
-                va='center', ha='left', fontsize=10)
+                 va='center', ha='left', fontsize=10)
 
-    # plt.xlabel('Frekuensi', fontsize=14)
-    # plt.ylabel('Emosi', fontsize=14)
-    # plt.title('Frekuensi kemunculan emosi pada komen tweet pada pasangan calon', fontsize=16)
-    plt.grid(axis='x', linestyle='--', alpha=0.7)
+    # plt.grid(axis='x', linestyle='--', alpha=0.7)
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
-    # Format x without scientific notation
     plt.ticklabel_format(style='plain', axis='x')
     plt.gca().get_xaxis().set_major_formatter(
         plt.FuncFormatter(lambda x, loc: f'{int(x):,}'.replace(",", "."))
@@ -221,9 +227,16 @@ def plot_emotion_counts(comments_df,  output_filepath='./emotion_plot.png'):
     # Save the plot as PNG
     plt.savefig(output_filepath, format='png', bbox_inches='tight')
 
-    # Return the file path of the saved plot
     return output_filepath
 
-# Example usage
-output_path = plot_emotion_counts(comments_df)
-print(f"Plot saved to: {output_path}")
+
+# Main function to process comments and generate the emotion plot
+def main(file_path='./app/dataset/yt_data2.json', output_filepath='./emotion_plot.png'):
+    comments_df = load_comment_data(file_path)
+    comments_df = classify_emotions_and_sentiments(comments_df)
+    output_path = plot_emotion_counts(comments_df, output_filepath)
+    print(f"Emotion plot saved at: {output_path}")
+
+
+if __name__ == "__main__":
+    main()
