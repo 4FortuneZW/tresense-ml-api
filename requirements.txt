@@ -23,3 +23,4 @@ tensorflow-cpu
 umap-learn
 llama-index==0.10.14
 llama-index-llms-groq
+import mpld3 
