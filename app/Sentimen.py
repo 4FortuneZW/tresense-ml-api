@@ -18,6 +18,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import mpld3 
 
+import io
+from google.cloud import storage
+from datetime import datetime, timezone
+
+
 # Set display options for pandas
 pd.set_option('display.max_rows', None)
 
@@ -158,77 +163,66 @@ def emotion_to_sentiment(label: str) -> str:
         return 'negative'
     return 'positive'
 
+# Create Function to Emotion Count from Dataset
+# Create Function to Sentiment Count  from Dataset
+    
 def classify_emotions_and_sentiments(comments_df):
     """Apply emotion classification and sentiment conversion on comments."""
     comments_df['emotion'] = comments_df['comment'].apply(text_emotion_classification)
     comments_df['sentiment'] = comments_df['emotion'].apply(emotion_to_sentiment)
+
     return comments_df
-
-# Create Function to Emotion Count from Dataset
-# Create Function to Sentiment Count  from Dataset
-
-
-def plot_emotion_counts(comments_df,  output_filepath='./emotion_plot.png'):
-    # Default color mapping if not provided
-    colors = {
-        'anger': '#DA655B',
-        'enthusiasm': '#DD649E',
-        'happiness': '#F7E991',
-        'calm': '#ECB974',
-        'neutral': '#808080',
-        'disgust': '#5F4594',
-        'fear': '#8A77AB',
-        'appreciation': '#59BCD7',
-        'sadness': '#5DA4D2'
-    }
     
-    def classify_emotions_and_sentiments(comments_df):
-        """Apply emotion classification and sentiment conversion on comments."""
-        comments_df['emotion'] = comments_df['comment'].apply(text_emotion_classification)
-        comments_df['sentiment'] = comments_df['emotion'].apply(emotion_to_sentiment)
-        return comments_df
-    
- # Function to plot emotion counts and save the plot
-def plot_emotion_counts(comments_df, output_filepath='./emotion_plot.png'):
-    """Generate a bar plot showing the counts of each emotion."""
+# Function to plot emotion counts and save the plot
+def plot_emotion_counts(comments_df, bucket_name='tresense_bucket'):
+    """Generate a bar plot and upload it to Google Cloud Storage with unique filename."""
+
     colors = {
         'anger': '#DA655B', 'enthusiasm': '#DD649E', 'happiness': '#F7E991', 'calm': '#ECB974',
-        'neutral': '#808080', 'disgust': '#5F4594', 'fear': '#8A77AB', 'appreciation': '#59BCD7',
-        'sadness': '#5DA4D2'
+        'disgust': '#5F4594', 'fear': '#8A77AB', 'appreciation': '#59BCD7', 'sadness': '#5DA4D2'
     }
 
     emotion_order = ['anger', 'enthusiasm', 'happiness', 'calm', 'disgust', 'fear', 'appreciation', 'sadness']
     ordered_colors = [colors[emotion] for emotion in emotion_order]
 
-    # Count the occurrences of each emotion
+    # Hitung jumlah masing-masing emosi
     emotion_counts = comments_df['emotion'].value_counts().reset_index()
     emotion_counts.columns = ['emotion', 'count']
-    emotion_counts = emotion_counts.sort_values(by='count', ascending=False).reset_index(drop=True)
-    emotion_counts = emotion_counts.set_index('emotion', inplace=False)
-    emotion_counts = emotion_counts.reindex(emotion_order)
+    emotion_counts = emotion_counts.set_index('emotion')
+    emotion_counts = emotion_counts.reindex(emotion_order).fillna(0)
 
-    # Plot the emotions as a horizontal bar chart
+    # Buat plot
     plt.figure(figsize=(12, 8))
     bars = plt.barh(emotion_counts.index, emotion_counts["count"], color=ordered_colors, height=0.87)
 
-    # Add data labels
     for bar in bars:
-        plt.text(bar.get_width(), bar.get_y() + bar.get_height()/2, f'{int(bar.get_width())}',
+        width = bar.get_width()
+        plt.text(width, bar.get_y() + bar.get_height() / 2, f'{int(width)}',
                  va='center', ha='left', fontsize=10)
 
-    # plt.grid(axis='x', linestyle='--', alpha=0.7)
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     plt.ticklabel_format(style='plain', axis='x')
     plt.gca().get_xaxis().set_major_formatter(
-        plt.FuncFormatter(lambda x, loc: f'{int(x):,}'.replace(",", "."))
-    )
+        plt.FuncFormatter(lambda x, loc: f'{int(x):,}'.replace(",", ".")))
 
-    # Save the plot as PNG
-    plt.savefig(output_filepath, format='png', bbox_inches='tight')
+    # Simpan ke buffer
+    image_buffer = io.BytesIO()
+    plt.savefig(image_buffer, format='png', bbox_inches='tight')
+    plt.close()
+    image_buffer.seek(0)
 
-    return output_filepath
+    # Buat nama unik berdasarkan timestamp
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    destination_blob = f"plots/emotion_plot_{timestamp}.png"
 
+    # Upload ke GCS
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob)
+    blob.upload_from_file(image_buffer, content_type='image/png')
+
+    return blob.public_url
 
 # Main function to process comments and generate the emotion plot
 def main(file_path='./app/dataset/yt_data2.json', output_filepath='./emotion_plot.png'):

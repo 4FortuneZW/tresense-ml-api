@@ -13,6 +13,11 @@ from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance
 import datamapplot
 from utils.comment_extract import extract_comments
 
+import tempfile
+import io
+from google.cloud import storage
+from datetime import datetime, timezone
+
 # Set display options for pandas
 pd.set_option('display.max_rows', None)
 
@@ -33,15 +38,15 @@ def generate_embeddings(comments_df, device='cpu'):
 def reduce_embeddings_for_visualization(embeddings):
     """Reduce embeddings for visualization using UMAP."""
     reduced_embeddings = UMAP(
-        n_neighbors=22, n_components=2, min_dist=0, metric='cosine', random_state=33, verbose=True
+        n_neighbors=5, n_components=2, min_dist=0, metric='cosine', random_state=33, verbose=True
     ).fit_transform(embeddings)
     return reduced_embeddings
 
 # Function to initialize and train BERTopic model
 def train_bertopic_model(comments_df, embeddings):
     """Initialize and train BERTopic model."""
-    umap_model = UMAP(n_neighbors=22, n_components=2, min_dist=0, metric='cosine', random_state=33)
-    hdbscan_model = HDBSCAN(min_cluster_size=25, metric='euclidean', cluster_selection_method='eom', prediction_data=True)
+    umap_model = UMAP(n_neighbors=5, n_components=2, min_dist=0, metric='cosine', random_state=33)
+    hdbscan_model = HDBSCAN(min_cluster_size=10, metric='euclidean', cluster_selection_method='eom', prediction_data=True)
 
     keybert = KeyBERTInspired()
     mmr = MaximalMarginalRelevance(diversity=0.4)
@@ -83,6 +88,10 @@ def process_text_with_llama(input_text, model_name="llama-3.1-8b-instant", api_k
     def call_model(messages):
         llm = Groq(model=model_name, api_key=api_key)
         response = llm.chat(messages)
+
+        print()
+        print("Ini Response:")
+        print(response)
         return response
     
     prompt = create_prompt()
@@ -91,8 +100,8 @@ def process_text_with_llama(input_text, model_name="llama-3.1-8b-instant", api_k
     return {"message": "Processed text", "result": response}
 
 # Function to generate interactive plot
-def generate_interactive_plot(reduced_embeddings, labels, output_path="interactive_plot.html"):
-    """Generates an interactive plot using `datamapplot` and saves it as an HTML file."""
+def generate_interactive_plot(reduced_embeddings, labels, bucket_name='tresense_bucket', folder_name='interactive'):
+    """Generates an interactive HTML plot and uploads it to GCS."""
     plot = datamapplot.create_interactive_plot(
         reduced_embeddings,
         labels,
@@ -101,9 +110,25 @@ def generate_interactive_plot(reduced_embeddings, labels, output_path="interacti
         enable_search=True,
     )
 
-    plot.save(output_path)
-    print(f"Interactive plot saved at {output_path}")
-    return output_path
+    # Buat nama file sementara
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    destination_blob = f"{folder_name}/interactive_plot_{timestamp}.html"
+
+    # Simpan ke file lokal sementara
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmpfile:
+        plot.save(tmpfile.name)
+        tmpfile_path = tmpfile.name
+
+    # Upload ke GCS
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob)
+    blob.upload_from_filename(tmpfile_path, content_type='text/html')
+
+    # Hapus file lokal setelah upload
+    os.remove(tmpfile_path)
+
+    return blob.public_url
 
 # Function to generate labels for the topics
 def generate_labels_for_topics(topic_model, representative_docs, representative, topics):
@@ -117,8 +142,9 @@ def generate_labels_for_topics(topic_model, representative_docs, representative,
         
         llama_result = process_text_with_llama(prompt)
         result.append(llama_result['result'].message.content)
+    print(result)
 
-    llm_labels = [re.sub(r'\W+', ' ', label.split("\n")[0].replace('"', '').replace(r'label|Label|LABEL', '').strip()) for label in result]
+    llm_labels = [re.sub(r'\W+', ' ', label.split("\n")[0].replace('"', '').strip()) for label in result]
     llm_labels = [label if label else "Unlabelled" for label in llm_labels]
     all_labels = [llm_labels[topic + topic_model._outliers] if topic != -1 else "Unlabelled" for topic in topics]
     
