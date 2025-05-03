@@ -33,15 +33,15 @@ def generate_embeddings(comments_df, device='cpu'):
 def reduce_embeddings_for_visualization(embeddings):
     """Reduce embeddings for visualization using UMAP."""
     reduced_embeddings = UMAP(
-        n_neighbors=40, n_components=2, min_dist=0.02, metric='cosine', random_state=33, verbose=True
+        n_neighbors=22, n_components=2, min_dist=0, metric='cosine', random_state=33, verbose=True
     ).fit_transform(embeddings)
     return reduced_embeddings
 
 # Function to initialize and train BERTopic model
 def train_bertopic_model(comments_df, embeddings):
     """Initialize and train BERTopic model."""
-    umap_model = UMAP(n_neighbors=40, n_components=2, min_dist=0.02, metric='cosine', random_state=33)
-    hdbscan_model = HDBSCAN(min_cluster_size=40, metric='euclidean', cluster_selection_method='eom', prediction_data=True)
+    umap_model = UMAP(n_neighbors=22, n_components=2, min_dist=0, metric='cosine', random_state=33)
+    hdbscan_model = HDBSCAN(min_cluster_size=25, metric='euclidean', cluster_selection_method='eom', prediction_data=True)
 
     keybert = KeyBERTInspired()
     mmr = MaximalMarginalRelevance(diversity=0.4)
