@@ -1,30 +1,28 @@
+# Gunakan base image Python
 FROM python:3.10-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
 
-# Set working directory
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Buat direktori kerja di dalam container
 WORKDIR /app
 
-# Install system dependencies & uv
-RUN apt-get update && apt-get install -y curl && \
-    curl -Ls https://astral.sh/uv/install.sh | bash
+# Salin semua file ke dalam container
+COPY . /app
 
-# Add uv to PATH
-ENV PATH="/root/.cargo/bin:$PATH"
+# Install dependencies
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
-# Copy dependency file
-COPY requirements.txt .
-
-# Install dependencies using uv
-RUN uv pip install -r requirements.txt
-
-# Copy all source files
-COPY . .
-
-# Expose the port Cloud Run expects
+# Expose port untuk Cloud Run
 EXPOSE 8080
 
-# Run Flask app
-CMD ["flask", "--app", "app/flask_api", "run", "--host=0.0.0.0", "--port=8080"]
+# Jalankan aplikasi Flask
+CMD ["python", "app/flask_api.py"]
