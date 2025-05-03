@@ -1,0 +1,22 @@
+# Abaikan virtual environment
+hackvidia/
+
+# Abaikan file & folder editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Abaikan file cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Abaikan file sistem & OS
+.DS_Store
+Thumbs.db
+
+# Abaikan file konfigurasi lokal
+.env
+*.env
