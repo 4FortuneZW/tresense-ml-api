@@ -26,4 +26,4 @@ RUN pip install -r requirements.txt
 EXPOSE 8080
 
 # Jalankan aplikasi Flask (gunakan uvicorn untuk production)
-CMD ["uvicorn", "app.flask_api:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "flask_api:app", "--host", "0.0.0.0", "--port", "8080"]

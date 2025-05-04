@@ -3,8 +3,8 @@ import pandas as pd
 
 from flask import Flask, request, jsonify
 
-from Sentimen import classify_emotions_and_sentiments, plot_emotion_counts
-from BertTopic import load_comment_data, generate_embeddings, reduce_embeddings_for_visualization, train_bertopic_model, generate_labels_for_topics, generate_interactive_plot
+from app.Sentimen import classify_emotions_and_sentiments, plot_emotion_counts
+from app.BertTopic import load_comment_data, generate_embeddings, reduce_embeddings_for_visualization, train_bertopic_model, generate_labels_for_topics, generate_interactive_plot
 
 from huggingface_hub import login
 login(token=os.getenv("HUGGINGFACE_TOKEN"))
